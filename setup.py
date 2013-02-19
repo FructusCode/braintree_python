@@ -1,5 +1,11 @@
 import braintree
 from distutils.core import setup
+
+try:
+    import setuptools
+except ImportError:
+    pass
+
 setup(
     name="braintree",
     version=braintree.version.Version,

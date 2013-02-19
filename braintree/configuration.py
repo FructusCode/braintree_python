@@ -17,6 +17,12 @@ class Configuration(object):
             "your_private_key"
         )
 
+    Passing 'use_once=True' to.Configuration.configure enables the library to only
+    use 'merchant_id', 'public_key' and 'private_key' for one request then discard the
+    data, This will require you to call Configuration.configure before every request.
+    This can be good if you are using multiple merchant accounts to ensure you are
+    always using the correct merchant details and not just the previous configuration.
+
     By default, every request to the Braintree servers verifies the SSL connection
     using the `PycURL <http://pycurl.sourceforge.net/>`_
     library.  This ensures valid encryption of data and prevents man-in-the-middle attacks.
@@ -40,12 +46,13 @@ class Configuration(object):
 .. [1] `URL Fetch Python API Overview <https://developers.google.com/appengine/docs/python/urlfetch/overview>`_
     """
     @staticmethod
-    def configure(environment, merchant_id, public_key, private_key):
+    def configure(environment, merchant_id, public_key, private_key, use_once=False):
         Configuration.environment = environment
         Configuration.merchant_id = merchant_id
         Configuration.public_key = public_key
         Configuration.private_key = private_key
         Configuration.use_unsafe_ssl = False
+        Configuration.use_once = use_once
 
     @staticmethod
     def gateway():
@@ -53,12 +60,20 @@ class Configuration(object):
 
     @staticmethod
     def instantiate():
-        return Configuration(
+        config = Configuration(
             Configuration.environment,
             Configuration.merchant_id,
             Configuration.public_key,
             Configuration.private_key
         )
+
+        # Reset static authorization data if use_once is enabled
+        if Configuration.use_once:
+            Configuration.merchant_id = None
+            Configuration.public_key = None
+            Configuration.private_key = None
+
+        return config
 
     @staticmethod
     def api_version():
@@ -105,3 +120,12 @@ class Configuration(object):
             return braintree.util.http_strategy.requests_strategy.RequestsStrategy(self, self.environment)
         else:
             raise ValueError("invalid http strategy")
+
+    def _request_complete(self):
+        # Reset our authorization data when a request is completed
+        # NOTE: Possibly not needed as each call creates a new Configuration object
+        # via Configuration.gateway() - might as well leave it in for now.
+        if Configuration.use_once:
+            self.merchant_id = None
+            self.public_key = None
+            self.private_key = None
